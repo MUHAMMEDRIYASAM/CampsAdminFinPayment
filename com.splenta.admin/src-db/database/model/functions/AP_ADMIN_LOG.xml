@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+  <database name="FUNCTION AP_ADMIN_LOG">
+    <function name="AP_ADMIN_LOG" type="NULL">
+      <parameter name="ad_pinstace" type="VARCHAR">
+        <default/>
+      </parameter>
+      <body><![CDATA[V_INSERT_COUNT NUMBER:=0;
+V_DEL_COUNT NUMBER:=0;
+
+BEGIN
+--############ UPDATING TOTAL ATTEMPTS ##############--------
+
+FOR cur_parameter IN
+    ( select distinct ad_org_id from am_finacle_log  where TRUNC(created)=TRUNC(sysdate) and (total_attempts>4 or attempts>4) )
+LOOP
+update am_finacle_log set total_attempts=0,attempts=0 where ad_org_id=cur_parameter.ad_org_id and TRUNC(created)=TRUNC(sysdate);
+END LOOP;
+
+--############INSERTING FAILED DATA LOG##############--------
+INSERT INTO AP_FAILED_LOG (AP_FAILED_LOG_ID,AD_CLIENT_ID,AD_ORG_ID,ISACTIVE,CREATED,CREATEDBY,
+UPDATED,UPDATEDBY,AD_TABLE_ID,RECORD,TRANSACTION_DATE,RESPONSE_MSG,ATTEMPTS,TRANSACTION,
+SENDER_REF,REQUEST_MSG,TRANS_STATUS,TOTAL_ATTEMPTS,AMOUNT,CREDITACCTNO,DEBITACCTNO,CREDITACCTNAME,DEBITACCTNAME,ISCHECKED
+)
+SELECT AM_FINACLE_LOG_ID,AD_CLIENT_ID,AD_ORG_ID,ISACTIVE,CREATED,CREATEDBY,
+UPDATED,UPDATEDBY,AD_TABLE_ID,RECORD_ID,TRANSACTION_DATE,RESPONSE_MSG,ATTEMPTS,TRANSACTION_ID,
+SENDER_REF_ID,REQUEST_MSG,TRANS_STATUS,TOTAL_ATTEMPTS,AMOUNT,CREDITACCTNO,DEBITACCTNO,CREDITACCTNAME,DEBITACCTNAME,'N'
+FROM AM_FINACLE_LOG where trans_status='Failed'
+and TRUNC(CREATED)=TRUNC(SYSDATE) and
+RESPONSE_MSG NOT LIKE '%Transaction not allowed on account%'
+;
+
+--############COUNT SELECTION##############--------   
+
+select count(1) into V_DEL_COUNT from am_finacle_log where trans_status='Failed'
+and TRUNC(created)=TRUNC(sysdate) and
+response_msg not like '%Transaction not allowed on account%';
+
+select count(1) into V_INSERT_COUNT from AP_FAILED_LOG where trans_status='Failed'
+and TRUNC(created)=TRUNC(sysdate) and ischecked='N' and
+response_msg not like '%Transaction not allowed on account%';
+
+--############DELETION##############--------   
+
+IF(V_DEL_COUNT=V_INSERT_COUNT) THEN
+delete from am_finacle_log where trans_status='Failed'
+and TRUNC(created)=TRUNC(sysdate) and
+response_msg not like '%Transaction not allowed on account%'; 
+update AP_FAILED_LOG set ischecked='Y' where trans_status='Failed'
+and TRUNC(created)=TRUNC(sysdate) and ischecked='N' and
+response_msg not like '%Transaction not allowed on account%';
+END IF;
+  
+END AP_ADMIN_LOG]]></body>
+    </function>
+  </database>

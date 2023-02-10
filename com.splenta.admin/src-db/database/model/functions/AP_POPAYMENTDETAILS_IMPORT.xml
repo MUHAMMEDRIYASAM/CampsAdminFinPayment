@@ -1,0 +1,177 @@
+<?xml version="1.0"?>
+  <database name="FUNCTION AP_POPAYMENTDETAILS_IMPORT">
+    <function name="AP_POPAYMENTDETAILS_IMPORT" type="NULL">
+      <parameter name="ad_pinstace" type="VARCHAR">
+        <default/>
+      </parameter>
+      <body><![CDATA[SolID	NVARCHAR2(30 CHAR);
+V_Branch NVARCHAR2(60 CHAR);
+V_BranchType	NVARCHAR2(30 CHAR);
+V_PONumber	NVARCHAR2(30 CHAR);
+V_PODate	Date;
+V_POType	VARCHAR2(32 BYTE);
+V_Vendor	NVARCHAR2(60 CHAR);
+V_Address	NVARCHAR2(255 CHAR);
+V_Status	VARCHAR2(20 BYTE);
+V_POAmount	NUMBER;
+V_POAmountGST NUMBER;
+V_Description	NVARCHAR2(255 CHAR);
+V_Note	NVARCHAR2(2000 CHAR);
+V_C_ORDER_ID	VARCHAR2(32 BYTE);
+V_PO_COUNT NUMBER:=0;
+V_PO_COUNTIT NUMBER:=0;
+
+
+BEGIN
+
+--############ TO INSERT EXISITING PO DATA ##############-------- (DO ONLY ONCE, ON THE DAY OF DEPLOYMENT)
+
+--      insert into AP_PODETAILS  ((
+--      select co.c_order_id,co.ad_client_id,co.ad_org_id,co.isactive,co.created,co.createdby,co.updated,co.updatedby,org.em_am_sol_id,
+--      org.name, oty.name, co.documentno ,co.dateordered ,'Asset PO' ,  part.name , loc.ADDRESS1 ||'-'|| loc.ADDRESS2 ||'-'|| loc.CITY ||'-'||loc.POSTAL ||'-'||reg.name,
+--      co.docstatus, co.totallines, co.grandtotal, co.description,co.deliverynotes,co.c_order_id
+--      from c_order co
+--      inner join ad_Org org on org.ad_org_id = co.ad_org_id
+--      inner join am_org_office_type oty on oty.am_org_office_type_id = org.em_am_org_office_type_id
+--      inner join c_bpartner_location cbp on cbp.c_bpartner_location_id = co.c_bpartner_location_id
+--      inner join c_bpartner part on part.c_bpartner_id = cbp.c_bpartner_id
+--      inner join c_location loc on loc.c_location_id = cbp.c_location_id
+--      inner join c_region reg on reg.c_region_id = loc.c_region_id
+--      where co.docstatus in ('CO') and co.em_pas_ispns='N' and co.issotrx='N'));
+
+--############ TO INSERT EXISITING IT PO DATA ##############-------- (DO ONLY ONCE, ON THE DAY OF DEPLOYMENT)
+
+--      insert into AP_PODETAILS ((
+--      select co.am_order_id,co.ad_client_id,co.ad_org_id,co.isactive,co.created,co.createdby,co.updated,co.updatedby,org.em_am_sol_id,
+--      org.name, oty.name, co.documentno ,co.dateordered ,'Revenue PO' ,  part.name , loc.ADDRESS1 ||'-'|| loc.ADDRESS2 ||'-'|| loc.CITY ||'-'||loc.POSTAL ||'-'||reg.name,
+--      'CO', co.totallines, co.grandtotal, co.description,co.deliverynotes,co.am_order_id
+--      from am_order co
+--      inner join ad_Org org on org.ad_org_id = co.ad_org_id
+--      inner join am_org_office_type oty on oty.am_org_office_type_id = org.em_am_org_office_type_id
+--      inner join c_bpartner_location cbp on cbp.c_bpartner_location_id = co.c_bpartner_location_id
+--      inner join c_bpartner part on part.c_bpartner_id = cbp.c_bpartner_id
+--      inner join c_location loc on loc.c_location_id = cbp.c_location_id
+--      inner join c_region reg on reg.c_region_id = loc.c_region_id));
+
+
+--############ TO INSERT EXISITING PAYMENT DATA ##############-------- (DO ONLY ONCE, ON THE DAY OF DEPLOYMENT)
+  
+--    FOR cur_parameter IN
+--      ( select * from AP_PODETAILS  )
+--    LOOP
+--        insert into AP_PAYMENTDETAILS ((
+--        select pay.fin_payment_id,pay.ad_client_id,pay.ad_org_id,pay.isactive,pay.created,pay.createdby,pay.updated,pay.updatedby,
+--        cur_parameter.AP_PODETAILS_ID,cur_parameter.branch,  pay.documentno, pay.amount,pay.paymentdate,inv.c_invoice_id,pay.fin_payment_id
+--        from fin_payment pay 
+--        inner join c_invoice inv on pay.referenceno = inv.documentno and inv.c_bpartner_id = pay.c_bpartner_id
+--        inner join c_order co on inv.c_order_id = co.c_order_id
+--        where pay.posted='Y' and co.c_order_id = cur_parameter.c_order_id));
+--       commit;
+--     END LOOP;
+
+
+--############ TO INSERT THE NEW PAYMENT DATA (Daywise)##############--------
+
+      insert into AP_PAYMENTDETAILS ((
+      select pay.fin_payment_id,pay.ad_client_id,pay.ad_org_id,pay.isactive,pay.created,pay.createdby,pay.updated,pay.updatedby,
+      po.AP_PODETAILS_ID,po.branch,  pay.documentno,pay.amount,pay.paymentdate,inv.c_invoice_id,pay.fin_payment_id
+      from fin_payment pay 
+      inner join c_invoice inv on pay.referenceno = inv.documentno and inv.c_bpartner_id = pay.c_bpartner_id
+      inner join ap_podetails po on po.c_order_id = inv.c_order_id
+      where pay.posted='Y' and trunc(pay.updated)=TRUNC(sysdate)));
+
+
+--############ TO INSERT/UPDATE THE ORDER DATA (Daywise)##############--------
+
+  FOR cur_parameter IN
+    ( select * from c_order where em_pas_ispns='N' and issotrx='N' and docstatus in ('CO','VO') and trunc(updated)=TRUNC(sysdate))
+  LOOP
+    select count(*) INTO V_PO_COUNT from ap_podetails where c_order_id=cur_parameter.c_order_id;
+
+    IF V_PO_COUNT>0 THEN
+            dbms_output.put_line('ordinary po update');
+      select  part.name , loc.ADDRESS1 ||'-'|| loc.ADDRESS2 ||'-'|| loc.CITY ||'-'||loc.POSTAL ||'-'||reg.name 
+      into V_Vendor,V_Address
+      from c_order co
+      inner join c_bpartner_location cbp on cbp.c_bpartner_location_id = co.c_bpartner_location_id
+      inner join c_bpartner part on part.c_bpartner_id = cbp.c_bpartner_id
+      inner join c_location loc on loc.c_location_id = cbp.c_location_id
+      inner join c_region reg on reg.c_region_id = loc.c_region_id
+      where co.c_order_id=cur_parameter.c_order_id;
+  
+      UPDATE ap_podetails set updated=cur_parameter.updated,
+      updatedby=cur_parameter.updatedby, podate=cur_parameter.dateordered,
+      vendor=V_Vendor,Vendoraddr=V_Address,status=cur_parameter.docstatus, 
+      amount=cur_parameter.totallines, amountincgst=cur_parameter.grandtotal, 
+      description=cur_parameter.description,deliverynote=cur_parameter.deliverynotes
+      where c_order_id=cur_parameter.c_order_id;
+      
+    ELSE
+      IF (cur_parameter.docstatus='CO') THEN  
+        dbms_output.put_line('ordinary po insert');
+        insert into AP_PODETAILS  ((
+        select co.c_order_id,co.ad_client_id,co.ad_org_id,co.isactive,co.created,co.createdby,co.updated,co.updatedby,org.em_am_sol_id,
+        org.name, oty.name, co.documentno ,co.dateordered ,'Asset PO' ,  part.name , loc.ADDRESS1 ||'-'|| loc.ADDRESS2 ||'-'|| loc.CITY ||'-'||loc.POSTAL ||'-'||reg.name,
+        co.docstatus, co.totallines, co.grandtotal, co.description,co.deliverynotes,co.c_order_id
+        from c_order co
+        inner join ad_Org org on org.ad_org_id = co.ad_org_id
+        inner join am_org_office_type oty on oty.am_org_office_type_id = org.em_am_org_office_type_id
+        inner join c_bpartner_location cbp on cbp.c_bpartner_location_id = co.c_bpartner_location_id
+        inner join c_bpartner part on part.c_bpartner_id = cbp.c_bpartner_id
+        inner join c_location loc on loc.c_location_id = cbp.c_location_id
+        inner join c_region reg on reg.c_region_id = loc.c_region_id
+        where co.c_order_id=cur_parameter.c_order_id));
+      END IF;
+    END IF;
+
+   END LOOP;
+   
+   
+--############ TO INSERT THE IT ORDER DATA (Daywise)##############--------
+
+   
+ FOR cur_parameterit IN
+    (select * from am_order where trunc(updated)=TRUNC(sysdate))
+ LOOP
+ 
+ select count(*) INTO V_PO_COUNTIT from ap_podetails where AP_PODETAILS_ID=cur_parameterit.am_order_id;
+ 
+ IF V_PO_COUNTIT>0 THEN
+      dbms_output.put_line('IT PO UPDATE');
+      select  part.name , loc.ADDRESS1 ||'-'|| loc.ADDRESS2 ||'-'|| loc.CITY ||'-'||loc.POSTAL ||'-'||reg.name
+      into V_Vendor,V_Address
+      from am_order co
+      inner join c_bpartner_location cbp on cbp.c_bpartner_location_id = co.c_bpartner_location_id
+      inner join c_bpartner part on part.c_bpartner_id = cbp.c_bpartner_id
+      inner join c_location loc on loc.c_location_id = cbp.c_location_id
+      inner join c_region reg on reg.c_region_id = loc.c_region_id        
+      where co.am_order_id=cur_parameterit.am_order_id;
+  
+      UPDATE ap_podetails set AD_CLIENT_ID=cur_parameterit.ad_client_id,AD_ORG_ID=cur_parameterit.ad_org_id,AMOUNT=cur_parameterit.totallines,AMOUNTINCGST=cur_parameterit.grandtotal,
+      DELIVERYNOTE=cur_parameterit.deliverynotes,DESCRIPTION=cur_parameterit.description,ISACTIVE=cur_parameterit.isactive,PODATE=cur_parameterit.dateordered,PONUMBER=cur_parameterit.documentno,
+      UPDATED=cur_parameterit.updated,UPDATEDBY=cur_parameterit.updatedby,VENDOR=V_Vendor,VENDORADDR=V_Address 
+      where c_order_id=cur_parameterit.am_order_id;
+      
+      ELSE
+      dbms_output.put_line('IT PO UPDATE');
+      insert into AP_PODETAILS ((
+      select co.am_order_id,co.ad_client_id,co.ad_org_id,co.isactive,co.created,co.createdby,co.updated,co.updatedby,org.em_am_sol_id,
+      org.name, oty.name, co.documentno ,co.dateordered ,'Revenue PO' ,  part.name , loc.ADDRESS1 ||'-'|| loc.ADDRESS2 ||'-'|| loc.CITY ||'-'||loc.POSTAL ||'-'||reg.name,
+      'CO', co.totallines, co.grandtotal, co.description,co.deliverynotes,null
+      from am_order co
+      inner join ad_Org org on org.ad_org_id = co.ad_org_id
+      inner join am_org_office_type oty on oty.am_org_office_type_id = org.em_am_org_office_type_id
+      inner join c_bpartner_location cbp on cbp.c_bpartner_location_id = co.c_bpartner_location_id
+      inner join c_bpartner part on part.c_bpartner_id = cbp.c_bpartner_id
+      inner join c_location loc on loc.c_location_id = cbp.c_location_id
+      inner join c_region reg on reg.c_region_id = loc.c_region_id        
+      where co.am_order_id=cur_parameterit.am_order_id));
+       END IF;
+
+
+        
+   END LOOP;
+   
+END AP_POPAYMENTDETAILS_IMPORT]]></body>
+    </function>
+  </database>

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+  <database name="MODIFIED TABLE AM_ASSET_TRANSFER">
+    <table name="AM_ASSET_TRANSFER" primaryKey="AM_ASSET_TRANSFER_PK">
+      <column name="EM_AP_BULKPROCESS_ID" primaryKey="false" required="false" type="VARCHAR" size="32" autoIncrement="false">
+        <default/>
+        <onCreateDefault/>
+      </column>
+      <foreign-key foreignTable="AP_BULKPROCESS" name="EM_AP_BULKPROCESS_ID_FK1">
+        <reference local="EM_AP_BULKPROCESS_ID" foreign="AP_BULKPROCESS_ID"/>
+      </foreign-key>
+    </table>
+  </database>

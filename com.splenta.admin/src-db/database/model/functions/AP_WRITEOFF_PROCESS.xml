@@ -1,0 +1,170 @@
+<?xml version="1.0"?>
+  <database name="FUNCTION AP_WRITEOFF_PROCESS">
+    <function name="AP_WRITEOFF_PROCESS" type="NULL">
+      <parameter name="v_ap_bulkprocess_id" type="VARCHAR" mode="in">
+        <default/>
+      </parameter>
+      <body><![CDATA[TYPE RECORD
+IS
+  REF
+  CURSOR;
+    Cur_Parameter RECORD;
+    Cur_Writeoff RECORD;
+    V_DISPOSALID VARCHAR2(32);
+    V_DISPOSALNO VARCHAR2(32);
+    V_ATID       VARCHAR2(32);
+    V_Notes      VARCHAR2(2000);
+    V_Approver    VARCHAR2(2000);
+    V_Creator    VARCHAR2(2000);
+
+
+  BEGIN
+    DBMS_OUTPUT.PUT_LINE('Starting of write off process ') ;
+    select createdby,updatedby,internalnotes into V_Creator,V_Approver,V_Notes from AP_BULKPROCESS where AP_BULKPROCESS_ID=V_AP_BULKPROCESS_ID;
+    /*Take all the assets based on the distinct orgs*/
+    FOR Cur_Parameter IN
+    ( SELECT DISTINCT Ad_Org_Id FROM A_ASSET WHERE Isstatic='Y'
+    )
+  LOOP
+    DBMS_OUTPUT.PUT_LINE('Looping for the Org:'|| Cur_Parameter.Ad_Org_Id) ;
+    SELECT get_uuid() INTO V_DISPOSALID FROM dual;
+    INSERT
+    INTO AM_ASSET_DISPOSAL
+      (
+        AM_ASSET_DISPOSAL_ID,
+        AD_CLIENT_ID,
+        AD_ORG_ID,
+        CREATED,
+        CREATEDBY,
+        DISPOSALREQ,
+        DESCRIPTION,
+        ISACTIVE,
+        UPDATED,
+        UPDATEDBY,
+        STATUS,
+        DOCSTATUS,
+        AD_ROLE_ID,
+        CREATESO,
+        AD_USER_ID,
+        WORKFLOW,
+        DOCUMENTNO,
+        COMPLETEREQ,
+        INTERNALNOTES,
+        APPALL,
+        WRITEOFF,
+        EM_AP_BULKPROCESS_ID
+      )
+      VALUES
+      (
+        V_DISPOSALID,
+        '491CEBAE71F044349EC66D75B978CC3C',
+        Cur_Parameter.Ad_Org_Id,
+        now(),
+        V_Approver,
+        'N',
+        V_Notes,
+        'Y',
+        now(),
+        V_Approver,
+        'H_DIS_AP',
+        'ABR_CO',
+        '5C335B98D0034592923DC061B57D6BEA',
+        'N',
+        V_Creator,
+        'WF_NIT_DIS_REQ',
+        '1002WO01',
+        'N',
+        'AUTOMATED WRITE OFF CREATED BY Openbravo',
+        'Y',
+        'writeoff',
+        V_AP_BULKPROCESS_ID
+      );
+    FOR Cur_Writeoff IN
+    (SELECT           *
+      FROM A_ASSET
+      WHERE Isstatic='Y'
+      AND ad_org_id =Cur_Parameter.Ad_Org_Id
+    )
+    LOOP
+      /*For populating the required fields*/
+      SELECT st.Am_Asset_Type_Id
+      INTO V_ATID
+      FROM a_asset ast
+      INNER JOIN M_Product mp
+      ON Mp.M_Product_Id=Ast.M_Product_Id
+      INNER JOIN Am_Asset_Type st
+      ON St.Am_Asset_Type_Id=Mp.Em_Am_Asset_Type_Id
+      WHERE ast.a_asset_id  =Cur_Writeoff.a_asset_id;
+      INSERT
+      INTO Am_Asset_Disposal_Line
+        (
+          AM_ASSET_DISPOSAL_LINE_ID,
+          AD_CLIENT_ID,
+          AD_ORG_ID,
+          AD_ROLE_ID,
+          CREATED,
+          CREATEDBY,
+          DESCRIPTION,
+          INTERNALNOTES,
+          ISACTIVE,
+          UPDATED,
+          UPDATEDBY,
+          AM_ASSET_DISPOSAL_ID,
+          LINESTATUS,
+          A_ASSET_ID,
+          AM_ASSET_TYPE_ID,
+          DEPRECIATEDAMOUNT,
+          M_PRODUCT_ID,
+          DISPOSALAMOUNT,
+          ISBUYBACK,
+          DOCSTATUS,
+          M_REQUISITIONLINE_ID,
+          M_REQUISITION_ID,
+          PURCHASE_PRODUCT_ID,
+          REQ_LINE_STATUS,
+          PURCHASEAMOUNT,
+          DIS_STATUS,
+          PURCHASE_COST,
+          C_ORDERLINE_ID,
+          DISPOSALSTATUS,
+          QUOTATIONAMT,
+          PURCHASEDATE        )
+        VALUES
+        (
+          get_uuid(),
+          '491CEBAE71F044349EC66D75B978CC3C',
+          Cur_Parameter.Ad_Org_Id,
+          '5C335B98D0034592923DC061B57D6BEA',
+          now(),
+          V_Approver,
+          V_Notes,
+         'AUTOMATED WRITE OFF CREATED BY Openbravo',
+          'Y',
+          now(),
+          V_Approver,
+          V_DISPOSALID,
+          'DIS_AP',
+          Cur_Writeoff.A_ASSET_ID,
+          V_ATID,
+          0,
+          Cur_Writeoff.M_PRODUCT_ID,
+          0,
+          'N',
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          'H_AM_AP',
+          Cur_Writeoff.Assetvalueamt,
+          NULL,
+          'A',
+          NULL,
+          Cur_Writeoff.Datepurchased
+        );
+    END LOOP;
+  END LOOP;
+END AP_WRITEOFF_PROCESS]]></body>
+    </function>
+  </database>

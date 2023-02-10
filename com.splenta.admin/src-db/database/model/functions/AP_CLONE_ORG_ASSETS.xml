@@ -1,0 +1,268 @@
+<?xml version="1.0"?>
+  <database name="FUNCTION AP_CLONE_ORG_ASSETS">
+    <function name="AP_CLONE_ORG_ASSETS" type="NULL">
+      <parameter name="p_source_org_id" type="VARCHAR" mode="in">
+        <default/>
+      </parameter>
+      <parameter name="p_destination_org_id" type="VARCHAR" mode="in">
+        <default/>
+      </parameter>
+      <parameter name="p_transferdate" type="TIMESTAMP">
+        <default/>
+      </parameter>
+      <body><![CDATA[TYPE RECORD
+IS
+  REF
+  CURSOR;
+    Cur_Parameter RECORD;
+    V_VALUE NVARCHAR2(2000);
+    V_ASSETVALUEAMT NUMBER;
+    V_BV            NUMBER;
+    V_ASSET_ID NVARCHAR2(32);
+  BEGIN
+    FOR Cur_Parameter IN
+    (SELECT            *
+    FROM a_asset
+    WHERE ad_org_id          =p_source_org_id
+    AND Residualassetvalueamt>0
+    --AND a_asset_id not in ('684D457B2E462885E0531E04FB0A1DE4','BC76288F88FF49D7A6CAF188535E5297','035B0AB700214A8A9D3E4A46818A85DD','F6467BE210884B02B05B7FBF802419F4') 
+    )
+  LOOP
+    DBMS_OUTPUT.PUT_LINE('Starting transfer process ') ;
+    IF(ROUND(Cur_Parameter.Residualassetvalueamt,2)=ROUND(Cur_Parameter.EM_AM_BOOKVALUE,2))THEN
+      DBMS_OUTPUT.PUT_LINE('Asset in residual value ') ;
+      V_ASSETVALUEAMT:=Cur_Parameter.ASSETVALUEAMT;
+      V_BV           :=Cur_Parameter.Residualassetvalueamt;
+    ELSE
+      DBMS_OUTPUT.PUT_LINE('Asset not in residual value ') ;
+      V_ASSETVALUEAMT:=Cur_Parameter.EM_AM_BOOKVALUE;
+      V_BV           :=Cur_Parameter.EM_AM_BOOKVALUE;
+    END IF;
+    SELECT get_uuid() INTO V_ASSET_ID FROM dual;
+    AM_GET_ASSET_VALUE(p_destination_org_id,Cur_Parameter.AD_CLIENT_ID,Cur_Parameter.M_PRODUCT_ID,V_VALUE);
+    INSERT
+    INTO A_ASSET
+      (
+        A_ASSET_ID,
+        AD_CLIENT_ID,
+        AD_ORG_ID,
+        ISACTIVE,
+        CREATED,
+        CREATEDBY,
+        UPDATED,
+        UPDATEDBY,
+        VALUE,
+        NAME,
+        DESCRIPTION,
+        HELP,
+        A_ASSET_GROUP_ID,
+        M_PRODUCT_ID,
+        SERNO,
+        LOT,
+        VERSIONNO,
+        GUARANTEEDATE,
+        ASSETSERVICEDATE,
+        ISOWNED,
+        ASSETDEPRECIATIONDATE,
+        USELIFEYEARS,
+        USELIFEMONTHS,
+        LIFEUSEUNITS,
+        USEUNITS,
+        ISDISPOSED,
+        ASSETDISPOSALDATE,
+        ISINPOSESSION,
+        LOCATIONCOMMENT,
+        M_LOCATOR_ID,
+        C_BPARTNER_ID,
+        C_BPARTNER_LOCATION_ID,
+        C_LOCATION_ID,
+        PROCESSING,
+        ISDEPRECIATED,
+        ISFULLYDEPRECIATED,
+        AD_USER_ID,
+        AMORTIZATIONENDDATE,
+        AMORTIZATIONSTARTDATE,
+        ANNUALAMORTIZATIONPERCENTAGE,
+        ASSETVALUEAMT,
+        C_CURRENCY_ID,
+        DATECANCELLED,
+        DATEPURCHASED,
+        M_ATTRIBUTESETINSTANCE_ID,
+        RESIDUALASSETVALUEAMT,
+        ACCTVALUEAMT,
+        AMORTIZATIONTYPE,
+        AMORTIZATIONVALUEAMT,
+        ASSETSCHEDULE,
+        DOCUMENTNO,
+        PROCESSED,
+        PROFIT,
+        QTY,
+        AMORTIZATIONCALCTYPE,
+        DEPRECIATEDPLAN,
+        DEPRECIATEDPREVIOUSAMT,
+        DEPRECIATEDVALUE,
+        ISSUMMARY,
+        C_PROJECT_ID,
+        ISSTATIC,
+        IS30DAYMONTH,
+        PROCESS_ASSET,
+        EM_AM_CALC_AMORT_IT_ACT,
+        EM_AM_IT_ACT_BLOCK_WDV,
+        EM_AM_ISIDLE,
+        EM_AM_M_INOUTLINE_ID,
+        EM_AM_ISTRANSFERED,
+        EM_AM_ISDISPROCESSING,
+        EM_AM_TRANSFER_DATE,
+        EM_AM_BOOKVALUE,
+        EM_AM_BOOKVAL_ATSALE,
+        EM_PRM_SOLID,
+        EM_PRM_BRCODE,
+        EM_PRM_TYPE,
+        EM_PRM_STATUS,
+        EM_PRM_LEASE_PERIOD,
+        EM_PRM_ADDRESS,
+        EM_PRM_LANDCOST,
+        EM_PRM_BUILDING,
+        EM_PRM_ISPREMISES,
+        EM_PRM_CALCULATE,
+        EM_PRM_FROWARD,
+        EM_PRM_ISFORWARDED,
+        EM_PRM_ROLE_ID,
+        EM_PRM_ORG_ID,
+        EM_PRM_PREMISE_STATUS,
+        EM_PRM_PREMISES_BRANCH_ID,
+        EM_PRM_PRODUCT_ID,
+        EM_ILAST_PURCHASE_COST,
+        EM_ILAST_ADDITIONAL_COST,
+        EM_ILAST_CREDIT_TAKEN,
+        EM_ILAST_SALE_VALUE,
+        EM_ILAST_CALC_AMORTIZATION,
+        EM_ILAST_DATE_OF_SALES
+      )
+      VALUES
+      (
+        V_ASSET_ID,
+        Cur_Parameter.AD_CLIENT_ID,
+        p_destination_org_id,
+        Cur_Parameter.ISACTIVE,
+        now(),
+        Cur_Parameter.CREATEDBY,
+        now(),
+        '100',
+        V_VALUE,
+        Cur_Parameter.NAME,
+        Cur_Parameter.DESCRIPTION,
+        Cur_Parameter.HELP,
+        Cur_Parameter.A_ASSET_GROUP_ID,
+        Cur_Parameter.M_PRODUCT_ID,
+        Cur_Parameter.SERNO,
+        Cur_Parameter.LOT,
+        Cur_Parameter.VERSIONNO,
+        Cur_Parameter.GUARANTEEDATE,
+        Cur_Parameter.ASSETSERVICEDATE,
+        Cur_Parameter.ISOWNED,
+        Cur_Parameter.ASSETDEPRECIATIONDATE,
+        Cur_Parameter.USELIFEYEARS,
+        Cur_Parameter.USELIFEMONTHS,
+        Cur_Parameter.LIFEUSEUNITS,
+        Cur_Parameter.USEUNITS,
+        Cur_Parameter.ISDISPOSED,
+        Cur_Parameter.ASSETDISPOSALDATE,
+        Cur_Parameter.ISINPOSESSION,
+        Cur_Parameter.LOCATIONCOMMENT,
+        Cur_Parameter.M_LOCATOR_ID,
+        Cur_Parameter.C_BPARTNER_ID,
+        Cur_Parameter.C_BPARTNER_LOCATION_ID,
+        Cur_Parameter.C_LOCATION_ID,
+        Cur_Parameter.PROCESSING,
+        Cur_Parameter.ISDEPRECIATED,
+        Cur_Parameter.ISFULLYDEPRECIATED,
+        Cur_Parameter.AD_USER_ID,
+        Cur_Parameter.AMORTIZATIONENDDATE,
+        p_transferdate,
+        Cur_Parameter.ANNUALAMORTIZATIONPERCENTAGE,
+        V_ASSETVALUEAMT,
+        Cur_Parameter.C_CURRENCY_ID,
+        Cur_Parameter.DATECANCELLED,
+        Cur_Parameter.DATEPURCHASED,
+        Cur_Parameter.M_ATTRIBUTESETINSTANCE_ID,
+        Cur_Parameter.RESIDUALASSETVALUEAMT,
+        Cur_Parameter.ACCTVALUEAMT,
+        Cur_Parameter.AMORTIZATIONTYPE,
+        Cur_Parameter.AMORTIZATIONVALUEAMT,
+        Cur_Parameter.ASSETSCHEDULE,
+        Cur_Parameter.DOCUMENTNO,
+        Cur_Parameter.PROCESSED,
+        Cur_Parameter.PROFIT,
+        Cur_Parameter.QTY,
+        Cur_Parameter.AMORTIZATIONCALCTYPE,
+        Cur_Parameter.DEPRECIATEDPLAN,
+        Cur_Parameter.DEPRECIATEDPREVIOUSAMT,
+        Cur_Parameter.DEPRECIATEDVALUE,
+        Cur_Parameter.ISSUMMARY,
+        Cur_Parameter.C_PROJECT_ID,
+        Cur_Parameter.ISSTATIC,
+        Cur_Parameter.IS30DAYMONTH,
+        Cur_Parameter.PROCESS_ASSET,
+        Cur_Parameter.EM_AM_CALC_AMORT_IT_ACT,
+        Cur_Parameter.EM_AM_IT_ACT_BLOCK_WDV,
+        Cur_Parameter.EM_AM_ISIDLE,
+        Cur_Parameter.EM_AM_M_INOUTLINE_ID,
+        'Y',
+        Cur_Parameter.EM_AM_ISDISPROCESSING,
+        p_transferdate,
+        V_BV,
+        Cur_Parameter.EM_AM_BOOKVAL_ATSALE,
+        Cur_Parameter.EM_PRM_SOLID,
+        Cur_Parameter.EM_PRM_BRCODE,
+        Cur_Parameter.EM_PRM_TYPE,
+        Cur_Parameter.EM_PRM_STATUS,
+        Cur_Parameter.EM_PRM_LEASE_PERIOD,
+        Cur_Parameter.EM_PRM_ADDRESS,
+        Cur_Parameter.EM_PRM_LANDCOST,
+        Cur_Parameter.EM_PRM_BUILDING,
+        Cur_Parameter.EM_PRM_ISPREMISES,
+        Cur_Parameter.EM_PRM_CALCULATE,
+        Cur_Parameter.EM_PRM_FROWARD,
+        Cur_Parameter.EM_PRM_ISFORWARDED,
+        Cur_Parameter.EM_PRM_ROLE_ID,
+        Cur_Parameter.EM_PRM_ORG_ID,
+        Cur_Parameter.EM_PRM_PREMISE_STATUS,
+        Cur_Parameter.EM_PRM_PREMISES_BRANCH_ID,
+        Cur_Parameter.EM_PRM_PRODUCT_ID,
+        Cur_Parameter.EM_ILAST_PURCHASE_COST,
+        Cur_Parameter.EM_ILAST_ADDITIONAL_COST,
+        Cur_Parameter.EM_ILAST_CREDIT_TAKEN,
+        Cur_Parameter.EM_ILAST_SALE_VALUE,
+        Cur_Parameter.EM_ILAST_CALC_AMORTIZATION,
+        Cur_Parameter.EM_ILAST_DATE_OF_SALES
+      );
+    --Need to delete the unposted lines of asset
+    --Commit for creating lines
+    COMMIT;
+    DELETE
+    FROM a_amortizationline al
+    WHERE al.a_asset_id       =Cur_Parameter.a_asset_id
+    AND al.a_amortization_id IN
+      (SELECT am.a_amortization_id
+      FROM A_AMORTIZATION am
+      WHERE am.posted ='N'
+      AND am.processed='N'
+      );
+    --Update source asset
+    UPDATE a_asset
+    SET Em_Am_Istransfered ='Y',
+      Em_Am_Transfer_Date  =p_transferdate,
+      Residualassetvalueamt=0,
+      Em_Am_Bookvalue      =0
+    WHERE a_asset_id       =Cur_Parameter.a_asset_id;
+    --Calling transfer destination script
+    
+    IF(ROUND(Cur_Parameter.Residualassetvalueamt,2)<>ROUND(Cur_Parameter.EM_AM_BOOKVALUE,2))THEN
+    AM_AMORTIZATION_TRANSFERDES(V_ASSET_ID);
+    END IF;
+    
+  END LOOP;
+END AP_CLONE_ORG_ASSETS]]></body>
+    </function>
+  </database>

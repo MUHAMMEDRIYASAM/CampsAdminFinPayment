@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+  <database name="MODIFIED TABLE AM_FINACLE_LOG">
+    <table name="AM_FINACLE_LOG" primaryKey="AM_FINACLE_LOG_KEY">
+      <column name="EM_AP_CLEAR" primaryKey="false" required="false" type="CHAR" size="1" autoIncrement="false">
+        <default/>
+        <onCreateDefault/>
+      </column>
+    </table>
+  </database>
